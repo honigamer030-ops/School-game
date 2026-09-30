@@ -569,23 +569,17 @@ function updateGame() {
 /* =========================
    GAME LOOP
 ========================= */
-
 function gameLoop() {
 
   if (!gameRunning) return;
 
+  drawRoad();
+  drawObjects();
+  drawPlayer();
 
   updateGame();
 
-  drawRoad();
-
-  drawObjects();
-
-  drawPlayer();
-
-
   requestAnimationFrame(gameLoop);
-
 }
 
 

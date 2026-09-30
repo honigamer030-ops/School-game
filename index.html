@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>School Run Game</title>
+
+<style>
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  overflow: hidden;
+  font-family: Arial, sans-serif;
+  background: #87ceeb;
+}
+
+canvas {
+  display: block;
+  width: 100vw;
+  height: 100vh;
+}
+
+#startScreen,
+#gameOver {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  background: rgba(0,0,0,0.55);
+  color: white;
+  z-index: 10;
+}
+
+.box {
+  background: #222;
+  padding: 30px;
+  border-radius: 20px;
+  width: 90%;
+  max-width: 400px;
+}
+
+h1 {
+  font-size: 36px;
+}
+
+button {
+  background: #ffd43b;
+  border: none;
+  padding: 15px 40px;
+  border-radius: 12px;
+  font-size: 22px;
+  font-weight: bold;
+}
+
+#hud {
+  position: fixed;
+  top: 15px;
+  left: 15px;
+  right: 15px;
+  display: none;
+  justify-content: space-between;
+  color: white;
+  font-size: 20px;
+  font-weight: bold;
+  z-index: 5;
+  text-shadow: 2px 2px 4px black;
+}
+
+.hidden {
+  display: none !important;
+}
+</style>
+</head>
+
+<body>
+
+<canvas id="game"></canvas>
+
+<div id="hud">
+  <div>🏆 Score: <span id="score">0</span></div>
+  <div>🪙 Coins: <span id="coins">0</span></div>
+</div>
+
+<div id="startScreen">
+  <div class="box">
+    <h1>🏃 School Run</h1>
+    <p>Run and collect the coins!</p>
+    <button onclick="startGame()">START</button>
+    <p>Swipe left/right to move<br>Swipe up to jump</p>
+  </div>
+</div>
+
+<div id="gameOver" class="hidden">
+  <div class="box">
+    <h1>GAME OVER</h1>
+
+    <p>Score: <span id="finalScore">0</span></p>
+    <p>Coins: <span id="finalCoins">0</span></p>
+
+    <button onclick="startGame()">PLAY AGAIN</button>
+  </div>
+</div>
+
+<script>
+
+/* =========================
+   YOUR IMAGES
+========================= */
+
+const runner = new Image();
+runner.src = "assets/runner.jpg";
+
+const chaser = new Image();
+chaser.src = "assets/chaser.jpg";
+
+const coin = new Image();
+coin.src = "assets/coin.jpg";
+
+
+/* =========================
+   CANVAS
+========================= */
+
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+let W = window.innerWidth;
+let H = window.innerHeight;
+
+canvas.width = W;
+canvas.height = H;
+
+window.addEventListener("resize", () => {
+  W = window.innerWidth;
+  H = window.innerHeight;
+
+  canvas.width = W;
+  canvas.height = H;
+});
+
+
+/* =========================
+   GAME VARIABLES
+========================= */
+
+let gameRunning = false;
+
+let score = 0;
+let coins = 0;
+
+let lane = 1;
+
+let playerX;
+
+let jumpHeight = 0;
+let jumpSpeed = 0;
+
+let objects = [];
+
+let spawnTimer = 0;
+
+let speed = 6;
+
+
+/* =========================
+   LANES
+========================= */
+
+function getLaneX(laneNumber) {
+
+  if (laneNumber === 0) {
+    return W * 0.30;
+  }
+
+  if (laneNumber === 1) {
+    return W * 0.50;
+  }
+
+  return W * 0.70;
+}
+
+
+/* =========================
+   START GAME
+========================= */
+
+function startGame() {
+
+  document.getElementById("startScreen")
+    .classList.add("hidden");
+
+  document.getElementById("gameOver")
+    .classList.add("hidden");
+
+  document.getElementById("hud")
+    .style.display = "flex";
+
+  score = 0;
+  coins = 0;
+
+  lane = 1;
+
+  jumpHeight = 0;
+  jumpSpeed = 0;
+
+  objects = [];
+
+  speed = 6;
+
+  spawnTimer = 0;
+
+  gameRunning = true;
+
+  requestAnimationFrame(gameLoop);
+}
+
+
+/* =========================
+   GAME OVER
+========================= */
+
+function gameOver() {
+
+  gameRunning = false;
+
+  document.getElementById("finalScore")
+    .innerText = Math.floor(score);
+
+  document.getElementById("finalCoins")
+    .innerText = coins;
+
+  document.getElementById("gameOver")
+    .classList.remove("hidden");
+}
+
+
+/* =========================
+   JUMP
+========================= */
+
+function jump() {
+
+  if (jumpHeight === 0) {
+
+    jumpSpeed = 18;
+
+  }
+
+}
+
+
+/* =========================
+   SPAWN OBJECTS
+========================= */
+
+function spawnObject() {
+
+  const randomLane = Math.floor(Math.random() * 3);
+
+  const isCoin = Math.random() < 0.55;
+
+  objects.push({
+
+    lane: randomLane,
+
+    y: -80,
+
+    type: isCoin ? "coin" : "obstacle",
+
+    collected: false
+
+  });
+
+}
+
+
+/* =========================
+   DRAW ROAD
+========================= */
+
+function drawRoad() {
+
+  // Sky
+
+  ctx.fillStyle = "#87CEEB";
+
+  ctx.fillRect(0, 0, W, H);
+
+
+  // Grass
+
+  ctx.fillStyle = "#55a630";
+
+  ctx.fillRect(0, H * 0.40, W, H);
+
+
+  // Road
+
+  ctx.fillStyle = "#444";
+
+  ctx.beginPath();
+
+  ctx.moveTo(W * 0.20, H * 0.40);
+
+  ctx.lineTo(W * 0.80, H * 0.40);
+
+  ctx.lineTo(W * 1.00, H);
+
+  ctx.lineTo(0, H);
+
+  ctx.closePath();
+
+  ctx.fill();
+
+
+  // Lane lines
+
+  ctx.strokeStyle = "white";
+
+  ctx.lineWidth = 4;
+
+  ctx.setLineDash([25, 25]);
+
+
+  ctx.beginPath();
+
+  ctx.moveTo(W * 0.40, H * 0.40);
+
+  ctx.lineTo(W * 0.33, H);
+
+  ctx.stroke();
+
+
+  ctx.beginPath();
+
+  ctx.moveTo(W * 0.60, H * 0.40);
+
+  ctx.lineTo(W * 0.67, H);
+
+  ctx.stroke();
+
+
+  ctx.setLineDash([]);
+
+}
+
+
+/* =========================
+   DRAW PLAYER
+========================= */
+
+function drawPlayer() {
+
+  playerX = getLaneX(lane);
+
+  const playerY = H * 0.78 - jumpHeight;
+
+  ctx.drawImage(
+
+    runner,
+
+    playerX - 45,
+
+    playerY - 100,
+
+    90,
+
+    110
+
+  );
+
+
+  // Chaser
+
+  ctx.drawImage(
+
+    chaser,
+
+    playerX - 35,
+
+    H * 0.94 - 80,
+
+    70,
+
+    80
+
+  );
+
+}
+
+
+/* =========================
+   DRAW OBJECTS
+========================= */
+
+function drawObjects() {
+
+  for (let obj of objects) {
+
+    const x = getLaneX(obj.lane);
+
+    if (obj.type === "coin") {
+
+      ctx.drawImage(
+
+        coin,
+
+        x - 30,
+
+        obj.y,
+
+        60,
+
+        60
+
+      );
+
+    }
+
+    else {
+
+      ctx.fillStyle = "#e63946";
+
+      ctx.fillRect(
+
+        x - 35,
+
+        obj.y,
+
+        70,
+
+        60
+
+      );
+
+      ctx.fillStyle = "white";
+
+      ctx.font = "25px Arial";
+
+      ctx.fillText(
+
+        "🚧",
+
+        x - 25,
+
+        obj.y + 40
+
+      );
+
+    }
+
+  }
+
+}
+
+
+/* =========================
+   UPDATE GAME
+========================= */
+
+function updateGame() {
+
+  score += 0.1;
+
+  speed += 0.001;
+
+
+  // Jump physics
+
+  if (jumpSpeed !== 0 || jumpHeight > 0) {
+
+    jumpHeight += jumpSpeed;
+
+    jumpSpeed -= 0.8;
+
+    if (jumpHeight <= 0) {
+
+      jumpHeight = 0;
+
+      jumpSpeed = 0;
+
+    }
+
+  }
+
+
+  // Spawn
+
+  spawnTimer--;
+
+  if (spawnTimer <= 0) {
+
+    spawnObject();
+
+    spawnTimer = 50;
+
+  }
+
+
+  // Move objects
+
+  for (let obj of objects) {
+
+    obj.y += speed;
+
+
+    const playerY = H * 0.78 - jumpHeight;
+
+    const x = getLaneX(lane);
+
+    const objectX = getLaneX(obj.lane);
+
+
+    const closeX =
+      Math.abs(x - objectX) < 60;
+
+    const closeY =
+      Math.abs(playerY - obj.y) < 70;
+
+
+    if (
+      closeX &&
+      closeY &&
+      !obj.collected
+    ) {
+
+      obj.collected = true;
+
+
+      if (obj.type === "coin") {
+
+        coins++;
+
+      }
+
+      else {
+
+        if (jumpHeight < 50) {
+
+          gameOver();
+
+          return;
+
+        }
+
+      }
+
+    }
+
+  }
+
+
+  objects = objects.filter(
+
+    obj => obj.y < H + 100 && !obj.collected
+
+  );
+
+
+  document.getElementById("score")
+    .innerText = Math.floor(score);
+
+  document.getElementById("coins")
+    .innerText = coins;
+
+}
+
+
+/* =========================
+   GAME LOOP
+========================= */
+
+function gameLoop() {
+
+  if (!gameRunning) return;
+
+
+  updateGame();
+
+  drawRoad();
+
+  drawObjects();
+
+  drawPlayer();
+
+
+  requestAnimationFrame(gameLoop);
+
+}
+
+
+/* =========================
+   KEYBOARD CONTROLS
+========================= */
+
+document.addEventListener("keydown", function(event) {
+
+  if (!gameRunning) return;
+
+
+  if (event.key === "ArrowLeft") {
+
+    lane--;
+
+    if (lane < 0) lane = 0;
+
+  }
+
+
+  if (event.key === "ArrowRight") {
+
+    lane++;
+
+    if (lane > 2) lane = 2;
+
+  }
+
+
+  if (event.key === "ArrowUp") {
+
+    jump();
+
+  }
+
+});
+
+
+/* =========================
+   PHONE SWIPE CONTROLS
+========================= */
+
+let startX = 0;
+let startY = 0;
+
+
+document.addEventListener("touchstart", function(event) {
+
+  startX = event.touches[0].clientX;
+
+  startY = event.touches[0].clientY;
+
+});
+
+
+document.addEventListener("touchend", function(event) {
+
+  if (!gameRunning) return;
+
+
+  let endX = event.changedTouches[0].clientX;
+
+  let endY = event.changedTouches[0].clientY;
+
+
+  let differenceX = endX - startX;
+
+  let differenceY = endY - startY;
+
+
+  if (Math.abs(differenceX) > Math.abs(differenceY)) {
+
+    if (differenceX > 40) {
+
+      lane++;
+
+      if (lane > 2) lane = 2;
+
+    }
+
+    else if (differenceX < -40) {
+
+      lane--;
+
+      if (lane < 0) lane = 0;
+
+    }
+
+  }
+
+  else {
+
+    if (differenceY < -40) {
+
+      jump();
+
+    }
+
+  }
+
+});
+
+</script>
+
+</body>
+  </html>
